@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in real values.
+# terraform.tfvars is in .gitignore.
+
+project_name                   = "dataplatform"
+location                       = "westeurope"
+databricks_account_id          = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+metastore_storage_account_name = "stdataplatformmetastore"  # must be globally unique
+
+tags = {
+  project    = "dataplatform"
+  managed_by = "terraform"
+  owner      = "data-platform-team"
+  cost_center = "data-engineering"
+}

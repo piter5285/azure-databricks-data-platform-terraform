@@ -1,0 +1,16 @@
+# Copy this file to backend.tf and fill in your values.
+# backend.tf is in .gitignore to avoid committing storage account keys.
+#
+# Pre-requisites (run once manually):
+#   az group create -n rg-tfstate-<project> -l westeurope
+#   az storage account create -n sttfstate<project> -g rg-tfstate-<project> --sku Standard_ZRS --kind StorageV2
+#   az storage container create -n tfstate --account-name sttfstate<project>
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-tfstate-<project>"
+    storage_account_name = "sttfstate<project>"
+    container_name       = "tfstate"
+    key                  = "global.terraform.tfstate"
+  }
+}

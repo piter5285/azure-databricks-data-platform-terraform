@@ -1,0 +1,41 @@
+project_name          = "dataplatform"
+location              = "westeurope"
+metastore_id          = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # from global/ output
+tenant_id             = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Networking
+vnet_address_space             = ["10.1.0.0/16"]
+databricks_public_subnet_cidr  = "10.1.1.0/24"
+databricks_private_subnet_cidr = "10.1.2.0/24"
+private_endpoints_subnet_cidr  = "10.1.3.0/24"
+
+# Storage (must be globally unique)
+source_landing_storage_account_name = "stdataplatformlanddev"
+datalake_storage_account_name       = "stdataplatformlakedev"
+
+# SQL Warehouse — small in dev
+sql_warehouse_size           = "2X-Small"
+sql_warehouse_max_clusters   = 2
+sql_warehouse_auto_stop_mins = 10
+
+# Cluster
+cluster_node_type               = "Standard_DS3_v2"
+cluster_max_workers             = 3
+cluster_autotermination_minutes = 20
+
+# Optionally restrict workspace access to corporate IPs
+# allowed_ip_ranges = ["203.0.113.0/24"]
+
+# Governance
+subscription_id       = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+monthly_budget_amount = 500
+budget_alert_emails   = ["platform-team@company.com", "finops@company.com"]
+allowed_cost_centers  = ["data-engineering", "data-science", "analytics", "platform", "ml-ops"]
+
+tags = {
+  project     = "dataplatform"
+  environment = "dev"
+  managed_by  = "terraform"
+  owner       = "data-platform-team"
+  cost_center = "data-engineering"
+}

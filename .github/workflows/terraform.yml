@@ -1,0 +1,186 @@
+name: Terraform CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write   # for OIDC auth to Azure
+  contents: read
+  pull-requests: write
+
+env:
+  TF_VERSION: "1.7.5"
+  ARM_USE_OIDC: "true"
+
+jobs:
+  # ── Validate & Format ──────────────────────
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive .
+
+      - name: Validate modules
+        run: |
+          for dir in modules/*/; do
+            echo "Validating $dir"
+            cd "$dir"
+            terraform init -backend=false
+            terraform validate
+            cd ../..
+          done
+
+  # ── Plan (PR only) ─────────────────────────
+  plan-dev:
+    name: Plan Dev
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    environment: dev
+    needs: validate
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (dev)
+        working-directory: environments/dev
+        run: terraform init
+        env:
+          ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+      - name: Terraform Plan (dev)
+        id: plan
+        working-directory: environments/dev
+        run: terraform plan -var-file="terraform.tfvars" -no-color -out=dev.tfplan
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Plan (dev) 📋
+            \`\`\`
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  # ── Apply Dev (on merge to main) ──────────
+  apply-dev:
+    name: Apply Dev
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: dev
+    needs: validate
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (dev)
+        working-directory: environments/dev
+        run: terraform init
+        env:
+          ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+      - name: Terraform Apply (dev)
+        working-directory: environments/dev
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+
+  # ── Apply Prep (manual approval) ──────────
+  apply-prep:
+    name: Apply Prep
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: prep              # requires manual approval in GitHub Environments
+    needs: apply-dev
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (prep)
+        working-directory: environments/prep
+        run: terraform init
+        env:
+          ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+      - name: Terraform Apply (prep)
+        working-directory: environments/prep
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}
+
+  # ── Apply Prod (manual approval) ──────────
+  apply-prod:
+    name: Apply Prod
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: prod              # requires manual approval in GitHub Environments
+    needs: apply-prep
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init (prod)
+        working-directory: environments/prod
+        run: terraform init
+        env:
+          ARM_ACCESS_KEY: ${{ secrets.TF_STATE_ACCESS_KEY }}
+
+      - name: Terraform Apply (prod)
+        working-directory: environments/prod
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+        env:
+          TF_VAR_databricks_account_id: ${{ secrets.DATABRICKS_ACCOUNT_ID }}

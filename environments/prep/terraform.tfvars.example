@@ -1,0 +1,34 @@
+project_name          = "dataplatform"
+location              = "westeurope"
+metastore_id          = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+tenant_id             = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+vnet_address_space             = ["10.2.0.0/16"]
+databricks_public_subnet_cidr  = "10.2.1.0/24"
+databricks_private_subnet_cidr = "10.2.2.0/24"
+private_endpoints_subnet_cidr  = "10.2.3.0/24"
+
+source_landing_storage_account_name = "stdataplatformlandprep"
+datalake_storage_account_name       = "stdataplatformlakeprep"
+
+sql_warehouse_size           = "X-Small"
+sql_warehouse_max_clusters   = 3
+sql_warehouse_auto_stop_mins = 15
+
+cluster_node_type               = "Standard_DS3_v2"
+cluster_max_workers             = 4
+cluster_autotermination_minutes = 30
+
+# Governance
+subscription_id       = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+monthly_budget_amount = 1000
+budget_alert_emails   = ["platform-team@company.com", "finops@company.com"]
+allowed_cost_centers  = ["data-engineering", "data-science", "analytics", "platform", "ml-ops"]
+
+tags = {
+  project     = "dataplatform"
+  environment = "prep"
+  managed_by  = "terraform"
+  owner       = "data-platform-team"
+  cost_center = "data-engineering"
+}
